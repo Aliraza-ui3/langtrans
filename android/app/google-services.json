@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "62532724940",
+    "project_id": "langtrans-47dbc",
+    "storage_bucket": "langtrans-47dbc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:62532724940:android:8936a4791e73455b913a69",
+        "android_client_info": {
+          "package_name": "com.example.langtrans"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBhwf4bLJW-KeHwaG3VRHcyV4OO0E24mEw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
