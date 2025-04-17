@@ -51,55 +51,59 @@ class _NavigationDrawerWidgetState extends State<NavigationDrawerWidget> {
   @override
   Widget build(BuildContext context) {
     return Drawer(
+      backgroundColor: Color(0xFFDAEBE3), // soft background
       child: isLoading
           ? Center(child: CircularProgressIndicator())
           : ListView(
               padding: EdgeInsets.zero,
               children: [
-                UserAccountsDrawerHeader(
-                  accountName: Text(
-                    userFirstName ?? "User",
-                    style: TextStyle(fontSize: 18),
-                  ),
-                  accountEmail: Text(
-                    userEmail ?? "No Email",
-                    style: TextStyle(fontSize: 14),
-                  ),
+                Container(
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor,
+                    color: Color(0xFF99CDD8),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(30),
+                      bottomRight: Radius.circular(30),
+                    ),
                   ),
-                  currentAccountPicture: CircleAvatar(
-                    backgroundColor: Colors.white,
-                    child: Icon(Icons.person, size: 40, color: Colors.blueGrey),
+                  child: UserAccountsDrawerHeader(
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                    ),
+                    accountName: Text(
+                      userFirstName ?? "User",
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Color(0xFF657166),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    accountEmail: Text(
+                      userEmail ?? "No Email",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF657166),
+                      ),
+                    ),
+                    currentAccountPicture: CircleAvatar(
+                      backgroundColor: Color(0xFFF3C3B2),
+                      child: Icon(Icons.person, size: 40, color: Colors.white),
+                    ),
                   ),
                 ),
-                ListTile(
-                  leading: Icon(Icons.home),
-                  title: Text('Home'),
-                  onTap: () {
-                    Get.offAllNamed('/home');
-                  },
-                ),
-                ListTile(
-                  leading: Icon(Icons.person),
-                  title: Text('Profile'),
-                  onTap: () {
-                    Get.toNamed('/profile');
-                  },
-                ),
-                ListTile(
-                  leading: Icon(Icons.settings),
-                  title: Text('Settings'),
-                  onTap: () {
-                    Get.toNamed('/settings');
-                  },
-                ),
-                Divider(),
+                SizedBox(height: 10),
+                _buildListTile(Icons.home, 'Home', '/home'),
+                _buildListTile(Icons.person, 'Profile', '/profile'),
+                _buildListTile(Icons.settings, 'Settings', '/settings'),
+                Divider(
+                    thickness: 1, color: Color(0xFF657166).withOpacity(0.2)),
                 ListTile(
                   leading: Icon(Icons.logout, color: Colors.red),
                   title: Text(
                     'Logout',
-                    style: TextStyle(color: Colors.red),
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   onTap: () async {
                     await _auth.signOut();
@@ -108,6 +112,23 @@ class _NavigationDrawerWidgetState extends State<NavigationDrawerWidget> {
                 ),
               ],
             ),
+    );
+  }
+
+  ListTile _buildListTile(IconData icon, String title, String route) {
+    return ListTile(
+      leading: Icon(icon, color: Color(0xFF657166)),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: Color(0xFF657166),
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      onTap: () {
+        Get.toNamed(route);
+      },
     );
   }
 }

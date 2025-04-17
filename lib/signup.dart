@@ -22,7 +22,7 @@ class _SignUpPageState extends State<SignUpPage> {
   bool isLoading = false;
 
   void signUp() async {
-    if (isLoading) return; // Prevent double-tap
+    if (isLoading) return;
     setState(() => isLoading = true);
 
     try {
@@ -47,13 +47,11 @@ class _SignUpPageState extends State<SignUpPage> {
         return;
       }
 
-      // Firebase Auth
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      // Firestore user data
       await _firestore.collection('users').doc(userCredential.user!.uid).set({
         'uid': userCredential.user!.uid,
         'firstName': firstName,
@@ -80,42 +78,95 @@ class _SignUpPageState extends State<SignUpPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Sign Up")),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(20),
-        child: Column(
-          children: [
-            TextField(
-              controller: firstNameController,
-              decoration: InputDecoration(labelText: "First Name"),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF99CDD8), Color(0xFFFDE8D3)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: 24),
+            child: Container(
+              padding: EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "Create Account",
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF657166),
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  _buildTextField("First Name", firstNameController),
+                  _buildTextField("Last Name", lastNameController),
+                  _buildTextField("Email", emailController,
+                      keyboardType: TextInputType.emailAddress),
+                  _buildTextField("Password", passwordController,
+                      isPassword: true),
+                  _buildTextField("Confirm Password", confirmPasswordController,
+                      isPassword: true),
+                  SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: isLoading ? null : signUp,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFFF3C3B2),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: isLoading
+                        ? CircularProgressIndicator(color: Colors.white)
+                        : Text("Register", style: TextStyle(fontSize: 16)),
+                  ),
+                ],
+              ),
             ),
-            TextField(
-              controller: lastNameController,
-              decoration: InputDecoration(labelText: "Last Name"),
-            ),
-            TextField(
-              controller: emailController,
-              decoration: InputDecoration(labelText: "Email"),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            TextField(
-              controller: passwordController,
-              decoration: InputDecoration(labelText: "Password"),
-              obscureText: true,
-            ),
-            TextField(
-              controller: confirmPasswordController,
-              decoration: InputDecoration(labelText: "Confirm Password"),
-              obscureText: true,
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: isLoading ? null : signUp,
-              child: isLoading
-                  ? CircularProgressIndicator(color: Colors.white)
-                  : Text("Register"),
-            ),
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(String label, TextEditingController controller,
+      {bool isPassword = false, TextInputType? keyboardType}) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: TextField(
+        controller: controller,
+        obscureText: isPassword,
+        keyboardType: keyboardType ?? TextInputType.text,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: Color(0xFF657166)),
+          filled: true,
+          fillColor: Color(0xFFDAEBE3).withOpacity(0.2),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Color(0xFF657166), width: 1.5),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Color(0xFF657166).withOpacity(0.5)),
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
     );

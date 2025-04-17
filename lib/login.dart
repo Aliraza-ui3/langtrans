@@ -18,7 +18,7 @@ class _LoginPageState extends State<LoginPage> {
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
-      Get.offAllNamed('/home'); // Navigate to home page after login
+      Get.offAllNamed('/home');
     } catch (e) {
       Get.snackbar(
         "Login Error",
@@ -32,38 +32,92 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Login")),
-      body: Padding(
-        padding: EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              controller: emailController,
-              decoration: InputDecoration(labelText: "Email"),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFF99CDD8), // Light Blue
+              Color(0xFFFDE8D3), // Peach
+              Color(0xFFDAEBE3), // Mint Green
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 60),
+        child: Center(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  "Welcome Back",
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF657166), // Charcoal Gray
+                  ),
+                ),
+                SizedBox(height: 30),
+                buildTextField("Email", emailController, false),
+                SizedBox(height: 16),
+                buildTextField("Password", passwordController, true),
+                SizedBox(height: 30),
+                ElevatedButton(
+                  onPressed: login,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFF657166), // Charcoal Gray
+                    padding: EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    "Login",
+                    style: TextStyle(fontSize: 16, color: Colors.white),
+                  ),
+                ),
+                SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => Get.toNamed('/signup'),
+                  child: Text(
+                    "Don't have an account? Register",
+                    style: TextStyle(color: Color(0xFF657166)),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Get.toNamed('/forgot-password'),
+                  child: Text(
+                    "Forgot Password?",
+                    style: TextStyle(color: Color(0xFF657166)),
+                  ),
+                ),
+              ],
             ),
-            TextField(
-              controller: passwordController,
-              decoration: InputDecoration(labelText: "Password"),
-              obscureText: true,
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: login,
-              child: Text("Login"),
-            ),
-            SizedBox(height: 10),
-            TextButton(
-              onPressed: () =>
-                  Get.toNamed('/signup'), // Navigate to Sign Up page
-              child: Text("Don't have an account? Register"),
-            ),
-            TextButton(
-              onPressed: () => Get.toNamed(
-                  '/forgot-password'), // Navigate to Forgot Password page
-              child: Text("Forgot Password?"),
-            ),
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildTextField(
+      String label, TextEditingController controller, bool isObscure) {
+    return TextField(
+      controller: controller,
+      obscureText: isObscure,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: Color(0xFF657166)),
+        filled: true,
+        fillColor: Colors.white.withOpacity(0.8),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFF657166), width: 1.5),
+          borderRadius: BorderRadius.circular(12),
         ),
       ),
     );

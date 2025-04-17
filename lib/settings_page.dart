@@ -31,14 +31,8 @@ class SettingsPage extends StatelessWidget {
     if (confirm == true) {
       try {
         final uid = _auth.currentUser!.uid;
-
-        // Delete Firestore user data
         await _firestore.collection('users').doc(uid).delete();
-
-        // Delete Firebase auth user
         await _auth.currentUser!.delete();
-
-        // Navigate to login
         Get.offAllNamed('/login');
       } catch (e) {
         Get.snackbar(
@@ -51,120 +45,93 @@ class SettingsPage extends StatelessWidget {
     }
   }
 
+  Widget buildSectionTitle(String title, {Color? color}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: color ?? Color(0xFF657166),
+        ),
+      ),
+    );
+  }
+
+  Widget buildTile(IconData icon, String title,
+      {String? subtitle,
+      VoidCallback? onTap,
+      Color? iconColor,
+      Color? textColor}) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 2,
+      child: ListTile(
+        leading: Icon(icon, color: iconColor ?? Color(0xFF657166)),
+        title: Text(
+          title,
+          style: TextStyle(color: textColor ?? Colors.black87),
+        ),
+        subtitle: subtitle != null ? Text(subtitle) : null,
+        onTap: onTap,
+        trailing: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Settings")),
+      backgroundColor: Color(0xFFDAEBE3),
+      appBar: AppBar(
+        title: Text("Settings"),
+        backgroundColor: Color(0xFF99CDD8),
+        elevation: 2,
+      ),
       drawer: NavigationDrawerWidget(),
       body: ListView(
-        padding: EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text("Account",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ),
-          ListTile(
-            leading: Icon(Icons.email),
-            title: Text("Manage Email"),
-            onTap: () {
-              // Handle manage email (optional)
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.lock),
-            title: Text("Change Password"),
-            onTap: () async {
-              final user = _auth.currentUser;
+          buildSectionTitle("Account"),
+          buildTile(Icons.lock, "Change Password", onTap: () async {
+            final user = _auth.currentUser;
 
-              if (user != null && user.email != null) {
-                try {
-                  await _auth.sendPasswordResetEmail(email: user.email!);
-                  Get.snackbar(
-                    "Password Reset",
-                    "A password reset link has been sent to ${user.email}",
-                    snackPosition: SnackPosition.TOP,
-                    backgroundColor: Colors.green,
-                    colorText: Colors.white,
-                  );
-                } catch (e) {
-                  Get.snackbar(
-                    "Error",
-                    "Failed to send password reset email.",
-                    snackPosition: SnackPosition.BOTTOM,
-                    backgroundColor: Colors.red,
-                    colorText: Colors.white,
-                  );
-                }
+            if (user != null && user.email != null) {
+              try {
+                await _auth.sendPasswordResetEmail(email: user.email!);
+                Get.snackbar(
+                  "Password Reset",
+                  "A password reset link has been sent to ${user.email}",
+                  snackPosition: SnackPosition.TOP,
+                  backgroundColor: Colors.green,
+                  colorText: Colors.white,
+                );
+              } catch (e) {
+                Get.snackbar(
+                  "Error",
+                  "Failed to send password reset email.",
+                  snackPosition: SnackPosition.BOTTOM,
+                  backgroundColor: Colors.red,
+                  colorText: Colors.white,
+                );
               }
-            },
-          ),
-          Divider(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text("Support",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ),
-          ListTile(
-            leading: Icon(Icons.help_outline),
-            title: Text("FAQ"),
-            onTap: () {
-              // Show FAQs
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.support_agent),
-            title: Text("Contact Support"),
-            onTap: () {
-              // Open contact support form or screen
-            },
-          ),
-          Divider(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text("About",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ),
-          ListTile(
-            leading: Icon(Icons.info_outline),
-            title: Text("App Version"),
-            subtitle: Text("1.0.0"),
-          ),
-          ListTile(
-            leading: Icon(Icons.description),
-            title: Text("Terms of Service"),
-            onTap: () {
-              // Open terms page
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.privacy_tip),
-            title: Text("Privacy Policy"),
-            onTap: () {
-              // Open privacy policy
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.code),
-            title: Text("Open Source Licenses"),
-            onTap: () {
-              // Open attributions/licenses
-            },
-          ),
-          Divider(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text("Danger Zone",
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red)),
-          ),
-          ListTile(
-            leading: Icon(Icons.delete_forever, color: Colors.red),
-            title: Text("Delete Account", style: TextStyle(color: Colors.red)),
-            onTap: () => deleteAccount(context),
-          ),
+            }
+          }),
+          buildSectionTitle("Support"),
+          buildTile(Icons.help_outline, "FAQ"),
+          buildTile(Icons.support_agent, "Contact Support"),
+          buildSectionTitle("About"),
+          buildTile(Icons.info_outline, "App Version", subtitle: "1.0.0"),
+          buildTile(Icons.description, "Terms of Service"),
+          buildTile(Icons.privacy_tip, "Privacy Policy"),
+          buildTile(Icons.code, "Open Source Licenses"),
+          buildSectionTitle("Danger Zone", color: Colors.red),
+          buildTile(Icons.delete_forever, "Delete Account",
+              onTap: () => deleteAccount(context),
+              iconColor: Colors.red,
+              textColor: Colors.red),
         ],
       ),
     );
