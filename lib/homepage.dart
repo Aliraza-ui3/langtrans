@@ -186,14 +186,24 @@ class _HomePageState extends State<HomePage> {
             subtitle: "Use camera for real-time detection",
             route: "/sign_to_text",
             color: Color(0xFFDAEBE3),
-          ).animate().fadeIn(duration: 400.ms).moveY(begin: 20),
+            delay: 0,
+          ),
           _buildOptionCard(
             icon: Icons.text_fields,
             title: "Text-to-Sign",
             subtitle: "Enter text to translate to sign language",
             route: "/text_to_sign",
             color: Color(0xFFF3C3B2),
-          ).animate().fadeIn(delay: 200.ms, duration: 400.ms).moveY(begin: 20),
+            delay: 200,
+          ),
+          _buildOptionCard(
+            icon: Icons.mic,
+            title: "Speech-to-Sign",
+            subtitle: "Speak to translate to sign language",
+            route: "/speech_to_sign",
+            color: Color.fromARGB(255, 207, 233, 159),
+            delay: 400,
+          ),
         ],
       ),
     );
@@ -205,39 +215,51 @@ class _HomePageState extends State<HomePage> {
     required String subtitle,
     required String route,
     required Color color,
+    int delay = 0,
   }) {
-    return InkWell(
-      onTap: () => Get.toNamed(route),
-      borderRadius: BorderRadius.circular(16),
-      splashColor: Colors.blueGrey.withOpacity(0.2),
-      child: Card(
-        color: color,
-        elevation: 10,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        shadowColor: Colors.black12,
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.4,
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 50, color: Color(0xFF657166)),
-              const SizedBox(height: 12),
-              Text(title,
+    return Animate(
+      effects: [
+        FadeEffect(duration: 400.ms, delay: delay.ms),
+        MoveEffect(begin: Offset(0, 20), duration: 400.ms, delay: delay.ms),
+      ],
+      child: InkWell(
+        onTap: () => Get.toNamed(route),
+        borderRadius: BorderRadius.circular(16),
+        splashColor: Colors.blueGrey.withOpacity(0.2),
+        child: Card(
+          color: color,
+          elevation: 10,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shadowColor: Colors.black12,
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.4,
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 50, color: Color(0xFF657166)),
+                const SizedBox(height: 12),
+                Text(
+                  title,
                   style: GoogleFonts.poppins(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF2F3A2F),
                   ),
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 8),
-              Text(subtitle,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  subtitle,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     color: Colors.grey[800],
-                  )),
-            ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

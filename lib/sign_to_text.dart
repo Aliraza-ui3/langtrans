@@ -1,75 +1,210 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:typed_data';
 import 'package:camera/camera.dart';
+import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
+import 'package:tflite_flutter/tflite_flutter.dart';
+import 'sign_to_text_logic.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
-class SignToTextPage extends StatefulWidget {
+class SignToText extends StatefulWidget {
+  const SignToText({Key? key}) : super(key: key);
+
   @override
-  _SignToTextPageState createState() => _SignToTextPageState();
+  State<SignToText> createState() => _SignToTextState();
 }
 
-class _SignToTextPageState extends State<SignToTextPage> {
-  CameraController? _controller;
-  String detectedText = "Waiting for sign...";
+class _SignToTextState extends State<SignToText> {
+  late CameraController _cameraController;
+  Interpreter? _interpreter;
+  bool _isDetecting = false;
+  bool _isCameraInitialized = false;
+  List<Offset> _landmarks = [];
 
   @override
   void initState() {
     super.initState();
-    _initializeCamera();
+    _initEverything();
+  }
+
+  Future<void> _initEverything() async {
+    await requestPermissions();
+    await _loadModel();
+    await _initializeCamera();
+  }
+
+  Future<void> requestPermissions() async {
+    final cameraStatus = await Permission.camera.request();
+    if (!cameraStatus.isGranted) {
+      debugPrint('❌ Camera permission not granted');
+      return;
+    }
+  }
+
+  Future<void> _loadModel() async {
+    try {
+      _interpreter =
+          await Interpreter.fromAsset('assets/hand_landmark_full.tflite');
+      debugPrint('✅ Model loaded successfully');
+    } catch (e) {
+      debugPrint('❌ Failed to load model: $e');
+    }
   }
 
   Future<void> _initializeCamera() async {
-    var status = await Permission.camera.status;
-    if (!status.isGranted) {
-      status = await Permission.camera.request();
-    }
+    if (_isCameraInitialized || _interpreter == null) return;
 
-    if (status.isGranted) {
+    try {
       final cameras = await availableCameras();
-      _controller = CameraController(cameras[0], ResolutionPreset.medium);
-      await _controller!.initialize();
-      setState(() {});
-    } else if (status.isPermanentlyDenied) {
-      await openAppSettings();
+      if (cameras.isEmpty) {
+        debugPrint('❌ No cameras found on device.');
+        return;
+      }
+
+      final frontCamera = cameras.firstWhere(
+        (camera) => camera.lensDirection == CameraLensDirection.front,
+        orElse: () => cameras.first,
+      );
+
+      _cameraController = CameraController(
+        frontCamera,
+        ResolutionPreset.low,
+        imageFormatGroup: ImageFormatGroup.yuv420,
+      );
+
+      await _cameraController.initialize();
+      debugPrint('✅ Camera initialized');
+      _isCameraInitialized = true;
+
+      await _cameraController.startImageStream((CameraImage image) async {
+        if (!_isDetecting && mounted && _interpreter != null) {
+          _isDetecting = true;
+          try {
+            await _runModel(image);
+          } catch (e, stack) {
+            debugPrint('❌ Error in runModel: $e');
+            debugPrintStack(stackTrace: stack);
+          }
+          _isDetecting = false;
+        }
+      });
+
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint('❌ Error initializing camera: $e');
+    }
+  }
+
+  Future<void> _runModel(CameraImage image) async {
+    if (_interpreter == null) return;
+
+    final rgbImage = _convertYUV420toImageColor(image);
+    if (rgbImage == null) return;
+
+    final resizedImage = img.copyResize(rgbImage, width: 224, height: 224);
+    final input = List.generate(
+        1,
+        (_) => List.generate(
+            224,
+            (y) => List.generate(224, (x) {
+                  final pixel = resizedImage.getPixel(x, y);
+                  return [
+                    img.getRed(pixel) / 255.0,
+                    img.getGreen(pixel) / 255.0,
+                    img.getBlue(pixel) / 255.0,
+                  ];
+                })));
+
+    final output = List.filled(1 * 63, 0.0).reshape([1, 63]);
+
+    try {
+      _interpreter!.run(input, output);
+      debugPrint("✅ Model ran successfully");
+
+      final List<Offset> points = [];
+      for (int i = 0; i < 21; i++) {
+        final x = output[0][i * 3].clamp(0.0, 1.0);
+        final y = output[0][i * 3 + 1].clamp(0.0, 1.0);
+        points.add(Offset(
+          x * MediaQuery.of(context).size.width,
+          y * MediaQuery.of(context).size.height,
+        ));
+      }
+
+      if (mounted) {
+        setState(() {
+          _landmarks = points;
+        });
+      }
+    } catch (e) {
+      debugPrint("❌ Error during model inference: $e");
+    }
+  }
+
+  img.Image? _convertYUV420toImageColor(CameraImage image) {
+    try {
+      final width = image.width;
+      final height = image.height;
+      final uvRowStride = image.planes[1].bytesPerRow;
+      final uvPixelStride = image.planes[1].bytesPerPixel ?? 1;
+
+      final imgBuffer = img.Image(width, height);
+
+      for (int y = 0; y < height; y++) {
+        final uvRow = y ~/ 2;
+        for (int x = 0; x < width; x++) {
+          final uvCol = x ~/ 2;
+          final uvIndex = uvRow * uvRowStride + uvCol * uvPixelStride;
+
+          final ypIndex = y * image.planes[0].bytesPerRow + x;
+          if (ypIndex >= image.planes[0].bytes.length ||
+              uvIndex >= image.planes[1].bytes.length ||
+              uvIndex >= image.planes[2].bytes.length) {
+            continue;
+          }
+
+          final yVal = image.planes[0].bytes[ypIndex];
+          final uVal = image.planes[1].bytes[uvIndex];
+          final vVal = image.planes[2].bytes[uvIndex];
+
+          final r = (yVal + 1.370705 * (vVal - 128)).round().clamp(0, 255);
+          final g = (yVal - 0.337633 * (uVal - 128) - 0.698001 * (vVal - 128))
+              .round()
+              .clamp(0, 255);
+          final b = (yVal + 1.732446 * (uVal - 128)).round().clamp(0, 255);
+
+          imgBuffer.setPixel(x, y, img.getColor(r, g, b));
+        }
+      }
+
+      return imgBuffer;
+    } catch (e) {
+      debugPrint('❌ Error converting YUV to RGB: $e');
+      return null;
     }
   }
 
   @override
   void dispose() {
-    _controller?.dispose();
+    _cameraController.dispose();
+    _interpreter?.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Sign to Text')),
-      body: _controller == null || !_controller!.value.isInitialized
-          ? Center(child: CircularProgressIndicator())
-          : Column(
+      body: (!_isCameraInitialized || !_cameraController.value.isInitialized)
+          ? const Center(child: CircularProgressIndicator())
+          : Stack(
               children: [
-                AspectRatio(
-                  aspectRatio: _controller!.value.aspectRatio,
-                  child: CameraPreview(_controller!),
-                ).animate().fadeIn(duration: 400.ms).moveY(begin: 20),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.blueGrey[50],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    detectedText,
-                    style: TextStyle(fontSize: 18),
-                    textAlign: TextAlign.center,
-                  ),
-                )
-                    .animate()
-                    .fadeIn(delay: 200.ms, duration: 400.ms)
-                    .moveY(begin: 20),
+                CameraPreview(_cameraController),
+                CustomPaint(
+                  painter: SignToTextLogic(_landmarks),
+                  child: Container(),
+                ),
               ],
             ),
     );
