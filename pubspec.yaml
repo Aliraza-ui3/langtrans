@@ -42,4 +42,5 @@ flutter:
   assets:
     - assets/hand_sign/
     - assets/asl_nn_model.tflite
+    - assets/palm_detection_lite.tflite
     - assets/hand_landmark_full.tflite
