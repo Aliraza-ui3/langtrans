@@ -4,8 +4,11 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
-import 'sign_to_text_logic.dart';
 import 'package:permission_handler/permission_handler.dart';
+
+import 'sign_to_text_logic.dart';
+import 'palm_anchors.dart';
+import 'palm_decoder.dart';
 
 class SignToText extends StatefulWidget {
   const SignToText({Key? key}) : super(key: key);
@@ -21,10 +24,12 @@ class _SignToTextState extends State<SignToText> {
   bool _isDetecting = false;
   bool _isCameraInitialized = false;
   List<Offset> _landmarks = [];
+  late List<Anchor> _anchors;
 
   @override
   void initState() {
     super.initState();
+    _anchors = generateAnchors();
     _initEverything();
   }
 
@@ -45,7 +50,7 @@ class _SignToTextState extends State<SignToText> {
   Future<void> _loadModels() async {
     try {
       _palmInterpreter =
-          await Interpreter.fromAsset('assets/palm_detection.tflite');
+          await Interpreter.fromAsset('assets/palm_detection_lite.tflite');
       _landmarkInterpreter =
           await Interpreter.fromAsset('assets/hand_landmark_full.tflite');
       debugPrint('✅ Models loaded successfully');
@@ -68,7 +73,7 @@ class _SignToTextState extends State<SignToText> {
 
       _cameraController = CameraController(
         frontCamera,
-        ResolutionPreset.low,
+        ResolutionPreset.medium,
         imageFormatGroup: ImageFormatGroup.yuv420,
       );
 
@@ -94,16 +99,32 @@ class _SignToTextState extends State<SignToText> {
   }
 
   Future<void> _runInference(CameraImage image) async {
-    final rgbImage = _convertYUV420toImageColor(image);
-    if (rgbImage == null) return;
+    if (_palmInterpreter == null) {
+      debugPrint('🛑 _palmInterpreter is null');
+      return;
+    }
+    if (_landmarkInterpreter == null) {
+      debugPrint('🛑 _landmarkInterpreter is null');
+      return;
+    }
 
-    final resizedPalmInput = img.copyResize(rgbImage, width: 128, height: 128);
+    final rgbImage = _convertYUV420toImageColor(image);
+    if (rgbImage == null) {
+      debugPrint('🛑 rgbImage conversion failed (null)');
+      return;
+    }
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // Palm detection input: 192x192
+    final palmInputImage = img.copyResize(rgbImage, width: 192, height: 192);
     final palmInput = List.generate(
       1,
       (_) => List.generate(
-        128,
-        (y) => List.generate(128, (x) {
-          final pixel = resizedPalmInput.getPixel(x, y);
+        192,
+        (y) => List.generate(192, (x) {
+          final pixel = palmInputImage.getPixel(x, y);
           return [
             img.getRed(pixel) / 255.0,
             img.getGreen(pixel) / 255.0,
@@ -113,22 +134,50 @@ class _SignToTextState extends State<SignToText> {
       ),
     );
 
-    final palmOutput = List.filled(1 * 18, 0.0).reshape([1, 18]);
-    _palmInterpreter!.run(palmInput, palmOutput);
+    final palmOutput = List.filled(1 * 2016 * 18, 0.0).reshape([1, 2016, 18]);
+    try {
+      _palmInterpreter!.run(palmInput, palmOutput);
+    } catch (e) {
+      debugPrint('❌ Error running palm model: $e');
+      return;
+    }
 
-    // Simulating that palm is found at center — ideally you'd parse bounding box from output
-    final handX = 0.5;
-    final handY = 0.5;
+    PalmBox? bestBox;
+    double bestScore = 0;
 
-    // Crop hand region from original image based on palm detection (dummy for now)
-    final croppedImage = img.copyResize(rgbImage, width: 224, height: 224);
+    for (int i = 0; i < 2016; i++) {
+      final raw = palmOutput[0][i];
+      final decoded = decodePalmBox(raw, _anchors[i], 0.75);
+      if (decoded != null && decoded.score > bestScore) {
+        bestBox = decoded;
+        bestScore = decoded.score;
+      }
+    }
+
+    if (bestBox == null) {
+      debugPrint('❌ No hand detected');
+      return;
+    }
+
+    final cropLeft = (bestBox.xMin * rgbImage.width).toInt();
+    final cropTop = (bestBox.yMin * rgbImage.height).toInt();
+    final cropWidth = (bestBox.width * rgbImage.width).toInt();
+    final cropHeight = (bestBox.height * rgbImage.height).toInt();
+
+    final cl = cropLeft.clamp(0, rgbImage.width - 1);
+    final ct = cropTop.clamp(0, rgbImage.height - 1);
+    final cw = cropWidth.clamp(1, rgbImage.width - cl);
+    final ch = cropHeight.clamp(1, rgbImage.height - ct);
+
+    final handRegion = img.copyCrop(rgbImage, cl, ct, cw, ch);
+    final resizedHand = img.copyResize(handRegion, width: 224, height: 224);
 
     final handInput = List.generate(
       1,
       (_) => List.generate(
         224,
         (y) => List.generate(224, (x) {
-          final pixel = croppedImage.getPixel(x, y);
+          final pixel = resizedHand.getPixel(x, y);
           return [
             img.getRed(pixel) / 255.0,
             img.getGreen(pixel) / 255.0,
@@ -139,15 +188,24 @@ class _SignToTextState extends State<SignToText> {
     );
 
     final output = List.filled(1 * 63, 0.0).reshape([1, 63]);
-    _landmarkInterpreter!.run(handInput, output);
+    try {
+      _landmarkInterpreter!.run(handInput, output);
+    } catch (e) {
+      debugPrint('❌ Error running landmark model: $e');
+      return;
+    }
 
     final List<Offset> points = [];
     for (int i = 0; i < 21; i++) {
-      final x = output[0][i * 3].clamp(0.0, 1.0);
-      final y = output[0][i * 3 + 1].clamp(0.0, 1.0);
+      final normX = output[0][i * 3];
+      final normY = output[0][i * 3 + 1];
+
+      final absX = cl + normX * cw;
+      final absY = ct + normY * ch;
+
       points.add(Offset(
-        x * MediaQuery.of(context).size.width,
-        y * MediaQuery.of(context).size.height,
+        absX * screenWidth / rgbImage.width,
+        absY * screenHeight / rgbImage.height,
       ));
     }
 
